@@ -2,6 +2,7 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
+#include <fstream>
 #include <thread>
 #include <chrono>
 #include <string.h>
@@ -16,18 +17,16 @@ struct pipeQuery
 using query = std::shared_ptr<pipeQuery>;
 
 
-void calculate(int i, Pipe<query> &pin, Pipe<query> &pout, bool keepThreadActive)
+void calculate(int i, Pipe<query> &pin, Pipe<query> &pout, int totalNumberOfVectors)
 {
-    bool isThreadNeeded = true;
-    while (isThreadNeeded)
+    int numberOfCalculation = 0;
+    while (numberOfCalculation < totalNumberOfVectors)
     {
-        if (!keepThreadActive)
+        query inPipe = pin.pop();
+        if (inPipe != nullptr)
         {
-            isThreadNeeded = false;
+            numberOfCalculation += 1;
         }
-
-        query inPipe;
-        inPipe = pin.pop();
 
         // std::cout << i << " - Pipe in: ";
         // for (size_t i = 0; i < inPipe->points.size(); i++)
@@ -54,30 +53,39 @@ void calculate(int i, Pipe<query> &pin, Pipe<query> &pout, bool keepThreadActive
         pipeOut->matrixes = inPipe->matrixes;
         pout.push(pipeOut);
     }
-    
 }
 
-void getLastQuery(Pipe<query> &pin, bool keepThreadActive)
+void getLastQuery(Pipe<query> &pin, int totalNumberOfVectors)
 {
-    bool isThreadNeeded = true;
-    while (isThreadNeeded)
+    int finishedCalculation = 0;
+    std::ofstream outFile("output.txt");
+    while (finishedCalculation < totalNumberOfVectors)
     {
-        if (!keepThreadActive)
-        {
-            isThreadNeeded = false;
-        }
         query inPipe = pin.pop();
+        if (inPipe != nullptr)
+        {
+            finishedCalculation += 1;
+        }
         std::cout << "End of pipe: ";
 
         for (size_t i = 0; i < inPipe->points.size(); i++)
         {
-            std::cout << inPipe->points[i] << "";
+            std::cout << inPipe->points[i] << " ";
+            if (i < inPipe->points.size()-1)
+            {
+                outFile << inPipe->points[i] << " ";
+            }
+            else
+            {
+                outFile << std::endl;
+            }
+            
         }
         std::cout << std::endl;
         
         // todo write pin data to file
     }
-    
+    outFile.close();
 }
 
 int main(int argc, char const *argv[])
@@ -157,12 +165,11 @@ int main(int argc, char const *argv[])
     std::vector<std::thread> threads;
     
     {
-        bool keepThreadActive = true;
         for (size_t i = 0; i < M; i++)
         {
-            threads.push_back(std::thread(calculate, i, std::ref(pipes[i]), std::ref(pipes[i + 1]), keepThreadActive));
+            threads.push_back(std::thread(calculate, i, std::ref(pipes[i]), std::ref(pipes[i + 1]), N));
         }
-        threads.push_back(std::thread(getLastQuery, std::ref(pipes[M]), keepThreadActive));
+        threads.push_back(std::thread(getLastQuery, std::ref(pipes[M]), N));
     }
 
     for (size_t i = 0; i < N; i++)
