@@ -16,54 +16,68 @@ struct pipeQuery
 using query = std::shared_ptr<pipeQuery>;
 
 
-void calculate(int i, Pipe<query> &pin, Pipe<query> &pout)
+void calculate(int i, Pipe<query> &pin, Pipe<query> &pout, bool keepThreadActive)
 {
-    query inPipe;
-
-    inPipe = pin.pop();
-
-    // std::cout << i << " - Pipe in: ";
-    // for (size_t i = 0; i < inPipe->points.size(); i++)
-    // {
-    //     std::cout << inPipe->points[i];
-    // }
-    // std::cout << std::endl;
-
-    std::vector<int> newVector(4);
-
-    for (size_t j = 0; j < 4; j++)
+    bool isThreadNeeded = true;
+    while (isThreadNeeded)
     {
-        newVector[j] = 0;
-        for (size_t k = 0; k < 4; k++)
+        if (!keepThreadActive)
         {
-            newVector[j] += inPipe->matrixes[i][j][k] * inPipe->points[k];
+            isThreadNeeded = false;
         }
+
+        query inPipe;
+        inPipe = pin.pop();
+
+        // std::cout << i << " - Pipe in: ";
+        // for (size_t i = 0; i < inPipe->points.size(); i++)
+        // {
+        //     std::cout << inPipe->points[i];
+        // }
+        // std::cout << std::endl;
+
+        std::vector<int> newVector(4);
+
+        for (size_t j = 0; j < 4; j++)
+        {
+            newVector[j] = 0;
+            for (size_t k = 0; k < 4; k++)
+            {
+                newVector[j] += inPipe->matrixes[i][j][k] * inPipe->points[k];
+            }
+        }
+        
+        pipeQuery *pQ = new struct pipeQuery;
+        query pipeOut(pQ);
+        pipeOut->points.resize(4);
+        pipeOut->points = newVector;
+        pipeOut->matrixes = inPipe->matrixes;
+        pout.push(pipeOut);
     }
     
-    pipeQuery *pQ = new struct pipeQuery;
-    query pipeOut(pQ);
-    pipeOut->points.resize(4);
-    pipeOut->points = newVector;
-    pipeOut->matrixes = inPipe->matrixes;
-    pout.push(pipeOut);
 }
 
-void getLastQuery(Pipe<query> &pin)
+void getLastQuery(Pipe<query> &pin, bool keepThreadActive)
 {
-    query inPipe = pin.pop();
-    if (inPipe == nullptr)
+    bool isThreadNeeded = true;
+    while (isThreadNeeded)
     {
-        return;
-    }
-    std::cout << "End of pipe: ";
+        if (!keepThreadActive)
+        {
+            isThreadNeeded = false;
+        }
+        query inPipe = pin.pop();
+        std::cout << "End of pipe: ";
 
-    for (size_t i = 0; i < inPipe->points.size(); i++)
-    {
-        std::cout << inPipe->points[i] << "";
+        for (size_t i = 0; i < inPipe->points.size(); i++)
+        {
+            std::cout << inPipe->points[i] << "";
+        }
+        std::cout << std::endl;
+        
+        // todo write pin data to file
     }
-    std::cout << std::endl;
     
-    // todo write pin data to file
 }
 
 int main(int argc, char const *argv[])
@@ -75,8 +89,9 @@ int main(int argc, char const *argv[])
     std::vector<std::vector<int>> vectors;
     int N;
 
-    if (!matrixesFile.is_open())
+    if (!matrixesFile.is_open() || !vectorsFile.is_open())
     {
+        std::cout << "Can't open input_matrices.txt and/or input_points.txt" << std::endl;
         return 0;
     }
 
@@ -110,12 +125,15 @@ int main(int argc, char const *argv[])
             }
         }
     }
+    matrixesFile.close();
 
-    std::string tempN;
-    std::getline(vectorsFile, tempN);
-    std::istringstream iss(tempN);
-    iss >> N;
-    std::cout << "Number of vectors (N): " << N << std::endl;
+    {
+        std::string tempN;
+        std::getline(vectorsFile, tempN);
+        std::istringstream iss(tempN);
+        iss >> N;
+        std::cout << "Number of vectors (N): " << N << std::endl;
+    }
 
     vectors.resize(N);
     for (size_t i = 0; i < N; i++)
@@ -132,20 +150,20 @@ int main(int argc, char const *argv[])
                 vectorsFile >> vectors[i][j];
             }
         }
-    }    
-
-    matrixesFile.close();
+    }
     vectorsFile.close();
 
     std::vector<Pipe<query>> pipes(M + 1);
     std::vector<std::thread> threads;
-
-    for (size_t i = 0; i < M; i++)
+    
     {
-        threads.push_back(std::thread(calculate, i, std::ref(pipes[i]), std::ref(pipes[i + 1])));
+        bool keepThreadActive = true;
+        for (size_t i = 0; i < M; i++)
+        {
+            threads.push_back(std::thread(calculate, i, std::ref(pipes[i]), std::ref(pipes[i + 1]), keepThreadActive));
+        }
+        threads.push_back(std::thread(getLastQuery, std::ref(pipes[M]), keepThreadActive));
     }
-    threads.push_back(std::thread(getLastQuery, std::ref(pipes[M])));
-
 
     for (size_t i = 0; i < N; i++)
     {
