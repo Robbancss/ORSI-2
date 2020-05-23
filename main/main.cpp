@@ -19,14 +19,10 @@ using query = std::shared_ptr<pipeQuery>;
 void calculate(int i, Pipe<query> &pin, Pipe<query> &pout)
 {
     query inPipe;
-    // if (inPipe == nullptr)
-    // {
-    //     pout.push(nullptr);
-    //     return;
-    // }
-    // std::cout << i << "-Pipe in: ";
 
     inPipe = pin.pop();
+
+    // std::cout << i << " - Pipe in: ";
     // for (size_t i = 0; i < inPipe->points.size(); i++)
     // {
     //     std::cout << inPipe->points[i];
@@ -35,7 +31,6 @@ void calculate(int i, Pipe<query> &pin, Pipe<query> &pout)
 
     std::vector<int> newVector(4);
 
-    // std::cout << i << "-Pipe out: ";
     for (size_t j = 0; j < 4; j++)
     {
         newVector[j] = 0;
@@ -43,9 +38,7 @@ void calculate(int i, Pipe<query> &pin, Pipe<query> &pout)
         {
             newVector[j] += inPipe->matrixes[i][j][k] * inPipe->points[k];
         }
-        // std::cout << newVector[j];
     }
-    // std::cout << std::endl;
     
     pipeQuery *pQ = new struct pipeQuery;
     query pipeOut(pQ);
@@ -62,7 +55,7 @@ void getLastQuery(Pipe<query> &pin)
     {
         return;
     }
-    std::cout << "getLastQuery: " << std::endl;
+    std::cout << "End of pipe: ";
 
     for (size_t i = 0; i < inPipe->points.size(); i++)
     {
@@ -70,6 +63,7 @@ void getLastQuery(Pipe<query> &pin)
     }
     std::cout << std::endl;
     
+    // todo write pin data to file
 }
 
 int main(int argc, char const *argv[])
@@ -91,7 +85,7 @@ int main(int argc, char const *argv[])
         std::getline(matrixesFile, tempM);
         std::istringstream iss(tempM);
         iss >> M;
-        std::cout << "First line (M): " << M << std::endl;
+        std::cout << "Number of threads (M): " << M << std::endl;
     }
 
     matrixes.resize(M);
@@ -112,11 +106,8 @@ int main(int argc, char const *argv[])
                 for (size_t k = 0; k < 4; k++)
                 {
                     matrixesFile >> matrixes[i][j][k];
-                    // std::cout << matrixes[i][j][k];
                 }
-                // std::cout << std::endl;
             }
-            // std::cout << std::endl;
         }
     }
 
@@ -124,7 +115,7 @@ int main(int argc, char const *argv[])
     std::getline(vectorsFile, tempN);
     std::istringstream iss(tempN);
     iss >> N;
-    std::cout << "First line (N): " << N << std::endl;
+    std::cout << "Number of vectors (N): " << N << std::endl;
 
     vectors.resize(N);
     for (size_t i = 0; i < N; i++)
@@ -141,38 +132,31 @@ int main(int argc, char const *argv[])
                 vectorsFile >> vectors[i][j];
             }
         }
-        
-    }
-    // for (size_t i = 0; i < N; i++)
-    // {
-    //     for (size_t j = 0; j < 4; j++)
-    //     {
-    //         std::cout << vectors[i][j];
-    //     }
-    //     std::cout << std::endl;
-    // }
-    
+    }    
 
-    std::vector<std::thread> threads(M + 1);
+    matrixesFile.close();
+    vectorsFile.close();
+
     std::vector<Pipe<query>> pipes(M + 1);
+    std::vector<std::thread> threads;
 
     for (size_t i = 0; i < M; i++)
     {
-        threads[i] = std::thread(calculate, i, std::ref(pipes[i]), std::ref(pipes[i + 1]));
+        threads.push_back(std::thread(calculate, i, std::ref(pipes[i]), std::ref(pipes[i + 1])));
     }
-    threads[M] = std::thread(getLastQuery, std::ref(pipes[M]));
+    threads.push_back(std::thread(getLastQuery, std::ref(pipes[M])));
 
 
-    pipeQuery *pQ = new struct pipeQuery;
-    query pipeInput(pQ);
-    pipeInput->matrixes = matrixes;
     for (size_t i = 0; i < N; i++)
     {
+        pipeQuery *pQ = new struct pipeQuery;
+        query pipeInput(pQ);
+        pipeInput->matrixes = matrixes;
         pipeInput->points = vectors[i];
         // std::cout << "PIPE: " << pipeInput->points[0] << pipeInput->points[1] << pipeInput->points[2] << pipeInput->points[3] << std::endl;
         pipes[0].push(pipeInput);
     }
-    pipes[0].push(nullptr);
+
     for (auto &th : threads)
     {
         th.join();   
