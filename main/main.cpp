@@ -16,7 +16,6 @@ struct pipeQuery
 
 using query = std::shared_ptr<pipeQuery>;
 
-
 void calculate(int i, Pipe<query> &pin, Pipe<query> &pout, int totalNumberOfVectors)
 {
     int numberOfCalculation = 0;
@@ -45,7 +44,7 @@ void calculate(int i, Pipe<query> &pin, Pipe<query> &pout, int totalNumberOfVect
                 newVector[j] += inPipe->matrixes[i][j][k] * inPipe->points[k];
             }
         }
-        
+
         pipeQuery *pQ = new struct pipeQuery;
         query pipeOut(pQ);
         pipeOut->points.resize(4);
@@ -71,7 +70,7 @@ void getLastQuery(Pipe<query> &pin, int totalNumberOfVectors)
         for (size_t i = 0; i < inPipe->points.size(); i++)
         {
             std::cout << inPipe->points[i] << " ";
-            if (i < inPipe->points.size()-1)
+            if (i < inPipe->points.size() - 1)
             {
                 outFile << inPipe->points[i] << " ";
             }
@@ -79,11 +78,8 @@ void getLastQuery(Pipe<query> &pin, int totalNumberOfVectors)
             {
                 outFile << std::endl;
             }
-            
         }
         std::cout << std::endl;
-        
-        // todo write pin data to file
     }
     outFile.close();
 }
@@ -149,7 +145,7 @@ int main(int argc, char const *argv[])
         vectors[i].resize(4);
         vectors[i][3] = 1;
     }
-    
+
     { // Read vectors from file to var
         for (size_t i = 0; i < N; i++)
         {
@@ -163,7 +159,7 @@ int main(int argc, char const *argv[])
 
     std::vector<Pipe<query>> pipes(M + 1);
     std::vector<std::thread> threads;
-    
+
     {
         for (size_t i = 0; i < M; i++)
         {
@@ -184,7 +180,7 @@ int main(int argc, char const *argv[])
 
     for (auto &th : threads)
     {
-        th.join();   
+        th.join();
     }
 
     std::cout << "Program shuts down" << std::endl;
